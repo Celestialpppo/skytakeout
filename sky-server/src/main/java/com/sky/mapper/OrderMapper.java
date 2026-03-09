@@ -31,10 +31,11 @@ public interface OrderMapper {
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(Orders order);
 
-    @Select("select * from orders where user_id = #{userId} and number = #{orderNumber}")
     Orders getOrderByOrderNumber(Long userId, String orderNumber);
 
     void update(Orders order);
+    
+    int updateWithCondition(Orders order, Integer oldStatus);
 
     Page<OrderVO> getHistoryOrders(OrdersPageQueryDTO ordersPageQueryDTO);
 

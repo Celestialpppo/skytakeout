@@ -62,4 +62,9 @@ public class OrdersSubmitDTO implements Serializable {
     //总金额
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)  // 表示只进行序列化，不进行反序列化
     private BigDecimal amount;
+    
+    //幂等性令牌
+    @ApiModelProperty(value = "幂等性令牌", required = true)
+    @NotNull(message = "幂等性令牌不能为空")
+    private String token;
 }

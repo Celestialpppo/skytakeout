@@ -182,8 +182,63 @@ CREATE TABLE `orders` (
   `pack_amount` int DEFAULT NULL COMMENT '打包费',
   `tableware_number` int DEFAULT NULL COMMENT '餐具数量',
   `tableware_status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '餐具数量状态  1按餐量提供  0选择具体数量',
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_orders_number` (`number`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb3 COLLATE=utf8_bin COMMENT='订单表';
+
+DROP TABLE IF EXISTS `order_request_log`;
+CREATE TABLE `order_request_log` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `user_id` bigint NOT NULL COMMENT '用户ID',
+  `submit_token` varchar(64) COLLATE utf8_bin NOT NULL COMMENT '提交令牌',
+  `cart_digest` varchar(64) COLLATE utf8_bin DEFAULT NULL COMMENT '购物车摘要',
+  `order_id` bigint DEFAULT NULL COMMENT '订单ID',
+  `order_number` varchar(50) COLLATE utf8_bin DEFAULT NULL COMMENT '订单号',
+  `status` tinyint NOT NULL DEFAULT '0' COMMENT '状态 0处理中 1成功 2失败',
+  `fail_reason` varchar(255) COLLATE utf8_bin DEFAULT NULL COMMENT '失败原因',
+  `create_time` datetime DEFAULT NULL COMMENT '创建时间',
+  `update_time` datetime DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_order_request_user_token` (`user_id`,`submit_token`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8_bin COMMENT='下单幂等日志';
+
+DROP TABLE IF EXISTS `payment_txn`;
+CREATE TABLE `payment_txn` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `pay_request_id` varchar(64) COLLATE utf8_bin NOT NULL COMMENT '支付请求ID',
+  `order_number` varchar(50) COLLATE utf8_bin NOT NULL COMMENT '订单号',
+  `user_id` bigint NOT NULL COMMENT '用户ID',
+  `pay_amount` decimal(10,2) NOT NULL COMMENT '支付金额',
+  `pay_method` tinyint NOT NULL COMMENT '支付方式',
+  `transaction_id` varchar(64) COLLATE utf8_bin DEFAULT NULL COMMENT '三方交易号',
+  `status` tinyint NOT NULL DEFAULT '0' COMMENT '状态 0待回调 1成功 2失败',
+  `channel` varchar(16) COLLATE utf8_bin DEFAULT NULL COMMENT '支付渠道',
+  `fail_reason` varchar(255) COLLATE utf8_bin DEFAULT NULL COMMENT '失败原因',
+  `request_time` datetime DEFAULT NULL COMMENT '发起时间',
+  `callback_time` datetime DEFAULT NULL COMMENT '回调时间',
+  `create_time` datetime DEFAULT NULL COMMENT '创建时间',
+  `update_time` datetime DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_payment_txn_order_number` (`order_number`),
+  UNIQUE KEY `uk_payment_txn_request_id` (`pay_request_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8_bin COMMENT='支付流水表';
+
+DROP TABLE IF EXISTS `payment_callback_log`;
+CREATE TABLE `payment_callback_log` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `callback_id` varchar(64) COLLATE utf8_bin NOT NULL COMMENT '回调幂等键',
+  `order_number` varchar(50) COLLATE utf8_bin NOT NULL COMMENT '订单号',
+  `transaction_id` varchar(64) COLLATE utf8_bin DEFAULT NULL COMMENT '三方交易号',
+  `channel` varchar(16) COLLATE utf8_bin DEFAULT NULL COMMENT '支付渠道',
+  `status` tinyint NOT NULL DEFAULT '0' COMMENT '状态 0处理中 1成功 2失败',
+  `raw_payload` varchar(2000) COLLATE utf8_bin DEFAULT NULL COMMENT '原始回调',
+  `fail_reason` varchar(255) COLLATE utf8_bin DEFAULT NULL COMMENT '失败原因',
+  `process_time` datetime DEFAULT NULL COMMENT '处理完成时间',
+  `create_time` datetime DEFAULT NULL COMMENT '创建时间',
+  `update_time` datetime DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_payment_callback_id` (`callback_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8_bin COMMENT='支付回调幂等日志';
 
 DROP TABLE IF EXISTS `setmeal`;
 CREATE TABLE `setmeal` (

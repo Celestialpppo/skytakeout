@@ -35,6 +35,45 @@
         where id = #{id}
     </update>
     
+    <select id="getOrderByOrderNumber" resultType="com.sky.entity.Orders">
+        select * from orders 
+        where number = #{orderNumber}
+        <if test="userId != null">
+            and user_id = #{userId}
+        </if>
+    </select>
+    
+    <update id="updateWithCondition">
+        update orders
+        <set>
+            <if test="cancelReason != null">
+                cancel_reason=#{cancelReason},
+            </if>
+            <if test="rejectionReason != null">
+                rejection_reason=#{rejectionReason},
+            </if>
+            <if test="cancelTime != null">
+                cancel_time=#{cancelTime},
+            </if>
+            <if test="payStatus != null">
+                pay_status=#{payStatus},
+            </if>
+            <if test="payMethod != null">
+                pay_method=#{payMethod},
+            </if>
+            <if test="checkoutTime != null">
+                checkout_time=#{checkoutTime},
+            </if>
+            <if test="status != null">
+                status = #{status},
+            </if>
+            <if test="deliveryTime != null">
+                delivery_time = #{deliveryTime}
+            </if>
+        </set>
+        where id = #{id} and status = #{oldStatus}
+    </update>
+    
     <resultMap id="OrderVOMap" type="com.sky.vo.OrderVO" autoMapping="true">
         <id column="id" property="id"/>
         <result column="order_number" property="number"/>

@@ -8,74 +8,100 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.statemachine.StateMachine;
 import org.springframework.stereotype.Service;
 
+/**
+ * 订单状态上下文。
+ *
+ * 这一版是“无状态上下文”实现，避免了旧实现中把 order/stateMachine
+ * 存在成员变量造成的并发串单风险。
+ *
+ * 使用方式：
+ * - 每次调用都把 order + stateMachine 作为参数传入；
+ * - 上下文仅负责“根据订单当前状态，路由到对应状态处理器”。
+ */
 @Service
 public class OrderStateContext {
-    private Orders order;
-    private IOrderState<OrderStatus, OrderEvent> iOrderState;
-    private StateMachine<OrderStatus, OrderEvent> stateMachine;
 
     @Autowired
     private PendingPaymentState pendingPaymentState;
+
     @Autowired
     private ToBeConfirmedState toBeConfirmedState;
+
     @Autowired
     private ConfirmedState confirmedState;
+
     @Autowired
     private CanceledState canceledState;
+
     @Autowired
     private DeliveryState deliveryState;
+
     @Autowired
     private CompleteState completeState;
 
-    public void init(Orders order, StateMachine<OrderStatus, OrderEvent> stateMachine) {
-        this.order = order;
-        this.stateMachine = stateMachine;
+    /**
+     * 根据订单当前状态，选择具体状态处理器。
+     */
+    private IOrderState<OrderStatus, OrderEvent> getOrderState(Orders order) {
         OrderStatus orderStatus = OrderStatus.fromState(order.getStatus());
         switch (orderStatus) {
-            case PENDING_PAYMENT: // 待付款状态
-                this.iOrderState = pendingPaymentState;  // 需要注意，如果是自己new的话，对象中的依赖注入全部都会失效
-                break;
-            case TO_BE_CONFIRMED: // 待接单状态
-                this.iOrderState = toBeConfirmedState;
-                break;
-            case CONFIRMED: // 已接单状态
-                this.iOrderState = confirmedState;
-                break;
+            case PENDING_PAYMENT:
+                return pendingPaymentState;
+            case TO_BE_CONFIRMED:
+                return toBeConfirmedState;
+            case CONFIRMED:
+                return confirmedState;
             case DELIVERY_IN_PROGRESS:
-                this.iOrderState = deliveryState; // 派送中状态
-                break;
+                return deliveryState;
             case COMPLETED:
-                this.iOrderState = completeState; // 已完成状态
-                break;
+                return completeState;
             case CANCELLED:
-                this.iOrderState = canceledState;  // 已取消状态
-                break;
+                return canceledState;
             default:
+                // 理论上不会走到这里；如果走到，说明订单状态值非法。
                 throw new OrderBusinessException("不存在的订单状态");
         }
     }
 
-    public void pay() {
-        iOrderState.pay(order, stateMachine);
+    /**
+     * 触发支付事件（PAY）。
+     */
+    public void pay(Orders order, StateMachine<OrderStatus, OrderEvent> stateMachine) {
+        getOrderState(order).pay(order, stateMachine);
     }
 
-    public void userCancel() {
-        iOrderState.userCancel(order, stateMachine);
+    /**
+     * 触发用户取消事件（USER_CANCEL）。
+     */
+    public void userCancel(Orders order, StateMachine<OrderStatus, OrderEvent> stateMachine) {
+        getOrderState(order).userCancel(order, stateMachine);
     }
 
-    public void confirmOrder() {
-        iOrderState.confirmOrder(order, stateMachine);
+    /**
+     * 触发商家接单事件（CONFIRMED）。
+     */
+    public void confirmOrder(Orders order, StateMachine<OrderStatus, OrderEvent> stateMachine) {
+        getOrderState(order).confirmOrder(order, stateMachine);
     }
 
-    public void adminCancel(String cancelReason) {
-        iOrderState.adminCancel(order, stateMachine, cancelReason);
+    /**
+     * 触发后台取消/拒单事件（ADMIN_CANCEL）。
+     */
+    public void adminCancel(Orders order, StateMachine<OrderStatus, OrderEvent> stateMachine, String cancelReason) {
+        getOrderState(order).adminCancel(order, stateMachine, cancelReason);
     }
 
-    public void delivery(){
-        iOrderState.delivery(order, stateMachine);
+    /**
+     * 触发派送事件（DELIVERY）。
+     */
+    public void delivery(Orders order, StateMachine<OrderStatus, OrderEvent> stateMachine) {
+        getOrderState(order).delivery(order, stateMachine);
     }
 
-    public void complete() {
-        iOrderState.complete(order, stateMachine);
+    /**
+     * 触发完成事件（RECEIVE）。
+     */
+    public void complete(Orders order, StateMachine<OrderStatus, OrderEvent> stateMachine) {
+        getOrderState(order).complete(order, stateMachine);
     }
 }
