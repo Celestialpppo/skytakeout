@@ -31,6 +31,25 @@ spring:
         max-active: 10
         max-idle: 5
         max-wait: -1ms
+  # Elasticsearch 连接配置（用于全文检索）
+  elasticsearch:
+    uris: ${sky.elasticsearch.uris:http://localhost:9200}
+    username: ${sky.elasticsearch.username:}
+    password: ${sky.elasticsearch.password:}
+  # RabbitMQ 连接配置（用于 Canal 增量消息解耦）
+  rabbitmq:
+    host: ${sky.rabbitmq.host:localhost}
+    port: ${sky.rabbitmq.port:5672}
+    username: ${sky.rabbitmq.username:guest}
+    password: ${sky.rabbitmq.password:guest}
+    virtual-host: ${sky.rabbitmq.virtual-host:/}
+    listener:
+      simple:
+        acknowledge-mode: auto
+        prefetch: 10
+        default-requeue-rejected: false
+    publisher-confirm-type: correlated
+    publisher-returns: true
 
 
 mybatis:
@@ -85,3 +104,41 @@ sky:
       lng: ${sky.shop.location.lng}
       lat: ${sky.shop.location.lat}
     limit-distance: ${sky.shop.limit-distance}
+  order:
+    timeout-minutes: 15
+    delay-queue:
+      enabled: true
+      queue-name: order:timeout:close
+      fallback-cron: "0 */30 * * * ?"
+  # 搜索模块开关与配置
+  search:
+    # 全文检索功能总开关
+    enabled: true
+    index:
+      goods-index: goods_search
+      auto-init-on-startup: false
+      # 搜索接口每页最大数量，防止单次查询过大
+      max-page-size: 50
+    sync:
+      # 增量同步开关：关闭时不启动 RabbitMQ 消费与 Canal 线程
+      enabled: true
+      exchange: search.sync.exchange
+      queue: search.sync.queue
+      dead-letter-exchange: search.sync.dlx
+      dead-letter-queue: search.sync.dlq
+      routing-key-dish: search.sync.dish
+      routing-key-setmeal: search.sync.setmeal
+      routing-key-category: search.sync.category
+    canal:
+      # Canal 客户端开关，依赖 sync.enabled=true
+      enabled: false
+      host: ${sky.canal.host:127.0.0.1}
+      port: ${sky.canal.port:11111}
+      destination: ${sky.canal.destination:example}
+      username: ${sky.canal.username:}
+      password: ${sky.canal.password:}
+      # 订阅规则：数据库名.表名，按需调整数据库名
+      filter: ${sky.canal.filter:.*\\.(dish|setmeal|category)}
+      batch-size: ${sky.canal.batch-size:100}
+      idle-sleep-ms: ${sky.canal.idle-sleep-ms:1000}
+      error-sleep-ms: ${sky.canal.error-sleep-ms:3000}

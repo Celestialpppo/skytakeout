@@ -21,13 +21,16 @@ import java.util.EnumSet;
 public class OrderStateMachineConfig extends EnumStateMachineConfigurerAdapter<OrderStatus, OrderEvent> {
     @Override
     public void configure(StateMachineStateConfigurer<OrderStatus, OrderEvent> states) throws Exception {
+        // 声明状态机包含的全部状态。
+        // initial 只是默认初始值，处理具体订单前会先 reset 到数据库当前状态。
         states.withStates()
                 .initial(OrderStatus.PENDING_PAYMENT)  // 初始化状态机状态
                 .states(EnumSet.allOf(OrderStatus.class));  // 传入所有可能的枚举类型
     }
 
     @Override
-    // 列举出所有可能的正确的流转情况，不正确的不要写入
+    // 列举所有合法流转。
+    // 超时关单本质上就是给“待付款订单”发送 ADMIN_CANCEL 事件。
     public void configure(StateMachineTransitionConfigurer<OrderStatus, OrderEvent> transitions) throws Exception {
         transitions.withExternal()
                 .source(OrderStatus.PENDING_PAYMENT).target(OrderStatus.TO_BE_CONFIRMED).event(OrderEvent.PAY)  // 待付款 -> 待接单状态
@@ -64,19 +67,19 @@ public class OrderStateMachineConfig extends EnumStateMachineConfigurerAdapter<O
     }
 
     @Override
-    // 状态机时间监听
+    // 状态机监听器主要用于排障。
     public void configure(StateMachineConfigurationConfigurer<OrderStatus, OrderEvent> config) throws Exception {
         config.withConfiguration().listener(new StateMachineListenerAdapter<OrderStatus, OrderEvent>() {
 
             @Override
             public void eventNotAccepted(Message<OrderEvent> event) {
-                // 当传入状态机不被接受的状态时触发
+                // 当前状态不接受该事件时触发。
                 log.error("被拒绝的状态：{}，当前触发事件：{}", event.getHeaders().get("order"), event.getPayload());
             }
 
             @Override
             public void stateChanged(State<OrderStatus, OrderEvent> from, State<OrderStatus, OrderEvent> to) {
-                // 当状态机状态发生改变时触发
+                // 状态机发生状态变化时触发。
                 log.info("state changed from " + (from == null ? "none" : from.getId()) + " to " + to.getId());
             }
         });

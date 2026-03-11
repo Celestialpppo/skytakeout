@@ -14,6 +14,7 @@ import org.apache.ibatis.annotations.Options;
 import org.apache.ibatis.annotations.Select;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
@@ -34,7 +35,16 @@ public interface OrderMapper {
     Orders getOrderByOrderNumber(Long userId, String orderNumber);
 
     void update(Orders order);
-    
+
+    /**
+     * 基于旧状态做条件更新。
+     *
+     * 这是订单状态流转里的核心并发保护手段：
+     * update orders set ... where id = ? and status = oldStatus
+     *
+     * 如果返回 0，说明当前线程处理期间订单状态已被别的线程改过，
+     * 本次变更必须放弃，避免把新的正确状态覆盖掉。
+     */
     int updateWithCondition(Orders order, Integer oldStatus);
 
     Page<OrderVO> getHistoryOrders(OrdersPageQueryDTO ordersPageQueryDTO);
@@ -52,11 +62,17 @@ public interface OrderMapper {
     )
     OrderStatisticsVO statistics();
 
-    @Select("SELECT * FROM orders WHERE order_time <= NOW() - INTERVAL 15 MINUTE AND status = 1")
-    List<Orders> findTimeoutOrders();
+    /**
+     * 查询“已超时且仍处于待付款”的订单，供低频补偿任务扫描使用。
+     */
+    @Select("SELECT * FROM orders WHERE order_time <= #{timeoutBefore} AND status = 1")
+    List<Orders> findTimeoutOrdersBefore(LocalDateTime timeoutBefore);
 
     void updateOrderBatch(List<Orders> orders);
 
+    /**
+     * 查询派送中时间过长的订单，供每日自动完结任务使用。
+     */
     @Select("SELECT * FROM orders WHERE order_time <= NOW() - INTERVAL 1 HOUR AND status = 4")
     List<Orders> existsOrdersWithStatus();
 

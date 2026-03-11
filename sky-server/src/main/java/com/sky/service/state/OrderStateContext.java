@@ -11,12 +11,13 @@ import org.springframework.stereotype.Service;
 /**
  * 订单状态上下文。
  *
- * 这一版是“无状态上下文”实现，避免了旧实现中把 order/stateMachine
+ * 这一版是“无状态上下文”实现，避免了旧实现中把 order / stateMachine
  * 存在成员变量造成的并发串单风险。
  *
- * 使用方式：
- * - 每次调用都把 order + stateMachine 作为参数传入；
- * - 上下文仅负责“根据订单当前状态，路由到对应状态处理器”。
+ * 在超时关单方案里，它的职责是：
+ * - 根据订单当前真实状态路由到对应状态处理器；
+ * - 让“系统超时取消”与“人工取消”共用同一套状态流转规则；
+ * - 避免在 service 层散落大量 if/else 手写状态切换。
  */
 @Service
 public class OrderStateContext {
@@ -41,6 +42,8 @@ public class OrderStateContext {
 
     /**
      * 根据订单当前状态，选择具体状态处理器。
+     *
+     * 这里一定要以数据库当前状态为准，而不是消息中的旧状态。
      */
     private IOrderState<OrderStatus, OrderEvent> getOrderState(Orders order) {
         OrderStatus orderStatus = OrderStatus.fromState(order.getStatus());
@@ -86,6 +89,8 @@ public class OrderStateContext {
 
     /**
      * 触发后台取消/拒单事件（ADMIN_CANCEL）。
+     *
+     * 订单超时自动取消最终就是通过这个入口进入具体状态处理器。
      */
     public void adminCancel(Orders order, StateMachine<OrderStatus, OrderEvent> stateMachine, String cancelReason) {
         getOrderState(order).adminCancel(order, stateMachine, cancelReason);

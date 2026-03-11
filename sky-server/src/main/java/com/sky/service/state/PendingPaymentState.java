@@ -14,7 +14,6 @@ import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.statemachine.StateMachine;
 import org.springframework.statemachine.StateMachineEventResult;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
@@ -33,7 +32,7 @@ public class PendingPaymentState implements IOrderState<OrderStatus, OrderEvent>
 
     @Override
     public void pay(Orders order, StateMachine<OrderStatus, OrderEvent> stateMachine) {
-
+        // 先把 PAY 事件交给状态机判断是否合法，而不是直接 setStatus。
         Message<OrderEvent> event = MessageBuilder.withPayload(OrderEvent.PAY)
                 .setHeader("order", order)
                 .build();
@@ -45,6 +44,7 @@ public class PendingPaymentState implements IOrderState<OrderStatus, OrderEvent>
         boolean accepted = Boolean.TRUE.equals(acceptedObj);
 
         if (accepted) {
+            // 状态机接受事件后，真正落库时仍然要做 CAS，防止并发覆盖。
             Integer oldStatus = order.getStatus();
             order.setStatus(stateMachine.getState().getId().getState());
             order.setPayStatus(Orders.PAID);
@@ -68,8 +68,7 @@ public class PendingPaymentState implements IOrderState<OrderStatus, OrderEvent>
 
     @Override
     public void userCancel(Orders order, StateMachine<OrderStatus, OrderEvent> stateMachine) {
-        // 待付款状态下取消订单
-        // 直接修改订单状态为已取消即可
+        // 待付款状态下允许用户主动取消。
         Message<OrderEvent> event = MessageBuilder.withPayload(OrderEvent.USER_CANCEL)
                 .setHeader("order", order).build();
 
@@ -95,7 +94,11 @@ public class PendingPaymentState implements IOrderState<OrderStatus, OrderEvent>
 
     @Override
     public void adminCancel(Orders order, StateMachine<OrderStatus, OrderEvent> stateMachine, String cancelReason) {
-        // 商家的取消订单操作
+        // 超时自动取消最终会落到这里：
+        // OrderTimeoutCloseServiceImpl -> OrderStateContext.adminCancel -> PendingPaymentState.adminCancel
+        //
+        // 也就是说，超时取消和后台人工取消复用的是同一套状态机事件流转代码，
+        // 区别只是传入的取消原因不同。
         Message<OrderEvent> event = MessageBuilder.withPayload(OrderEvent.ADMIN_CANCEL)
                 .setHeader("order", order).build();
         boolean accepted = stateMachine.sendEvent(event);
@@ -104,8 +107,12 @@ public class PendingPaymentState implements IOrderState<OrderStatus, OrderEvent>
             order.setStatus(stateMachine.getState().getId().getState());
             order.setCancelReason(cancelReason);
             order.setCancelTime(LocalDateTime.now());
-            int result = orderMapper.updateWithCondition(order, oldStatus);
-            if (result <= 0) {
+            // CAS 更新用于防止典型竞态：
+            // 1. 当前线程判断订单仍待付款；
+            // 2. 支付线程先一步把订单改成已支付；
+            // 3. 如果这里无条件 update，就会把已支付订单错误改成已取消。
+            int rowsAffected = orderMapper.updateWithCondition(order, oldStatus);
+            if (rowsAffected <= 0) {
                 log.warn("{}订单取消状态更新失败，可能已被其他线程处理", order.getNumber());
                 throw new OrderBusinessException("订单状态已更新，请刷新页面重试");
             }

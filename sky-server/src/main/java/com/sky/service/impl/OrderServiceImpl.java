@@ -15,6 +15,7 @@ import com.sky.mapper.*;
 import com.sky.result.PageResult;
 import com.sky.service.OrderService;
 import com.sky.service.IdempotentService;
+import com.sky.service.OrderTimeoutCloseService;
 import com.sky.service.state.OrderStateContext;
 import com.sky.utils.DistanceUtil;
 import com.sky.vo.OrderStatisticsVO;
@@ -107,6 +108,9 @@ public class OrderServiceImpl implements OrderService {
 
     @Autowired
     private PaymentTxnMapper paymentTxnMapper;
+
+    @Autowired
+    private OrderTimeoutCloseService orderTimeoutCloseService;
 
     @Override
     @Transactional
@@ -250,7 +254,10 @@ public class OrderServiceImpl implements OrderService {
             requestLog.setUpdateTime(LocalDateTime.now());
             orderRequestLogMapper.updateById(requestLog);
 
-            // 14) 返回下单结果给前端。
+            // 14) 事务提交成功后投递超时关单任务，避免回滚产生脏延时消息。
+            orderTimeoutCloseService.enqueueAfterCommit(orders);
+
+            // 15) 返回下单结果给前端。
             return OrderSubmitVO.builder()
                     .id(orders.getId())
                     .orderAmount(orderAmount)
@@ -268,7 +275,7 @@ public class OrderServiceImpl implements OrderService {
             }
             throw ex;
         } finally {
-            // 15) 无论成功失败都释放锁，防止死锁。
+            // 16) 无论成功失败都释放锁，防止死锁。
             if (lock != null && lock.isHeldByCurrentThread()) {
                 lock.unlock();
             }
