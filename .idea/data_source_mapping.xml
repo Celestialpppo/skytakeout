@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="DataSourcePerFileMappings">
+    <file url="file://$PROJECT_DIR$/../.trae/specs/order-idempotency-optimization/order_idempotency_tables.sql" value="9dd65680-ba66-4795-b54a-e5eba31cd4f4" />
+    <file url="file://$PROJECT_DIR$/sky.sql" value="9dd65680-ba66-4795-b54a-e5eba31cd4f4" />
+  </component>
+</project>
