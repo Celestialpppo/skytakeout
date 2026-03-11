@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.sky.mapper.SearchSyncMapper">
+
+    <!--
+      菜品搜索源数据：
+      1. biz_type 固定为 dish；
+      2. 左连接 category，避免分类异常时整行丢失；
+      3. 是否入索引由服务层统一判断（status/category_status）。
+    -->
+    <select id="listAllDishRecords" resultType="com.sky.search.model.SearchSourceRecord">
+        select
+            'dish' as biz_type,
+            d.id as source_id,
+            d.name,
+            d.description,
+            d.category_id,
+            c.name as category_name,
+            d.price,
+            d.image,
+            d.status,
+            ifnull(c.status, 0) as category_status,
+            d.update_time
+        from dish d
+            left join category c on c.id = d.category_id
+    </select>
+
+    <!-- 套餐搜索源数据，逻辑与菜品一致。
+    查全部套餐搜索数据
+     -->
+    <select id="listAllSetmealRecords" resultType="com.sky.search.model.SearchSourceRecord">
+        select
+            'setmeal' as biz_type,
+            s.id as source_id,
+            s.name,
+            s.description,
+            s.category_id,
+            c.name as category_name,
+            s.price,
+            s.image,
+            s.status,
+            ifnull(c.status, 0) as category_status,
+            s.update_time
+        from setmeal s
+            left join category c on c.id = s.category_id
+    </select>
+
+    <!-- 按 ID 查询单条菜品源记录。 -->
+    <select id="getDishRecordById" resultType="com.sky.search.model.SearchSourceRecord">
+        select
+            'dish' as biz_type,
+            d.id as source_id,
+            d.name,
+            d.description,
+            d.category_id,
+            c.name as category_name,
+            d.price,
+            d.image,
+            d.status,
+            ifnull(c.status, 0) as category_status,
+            d.update_time
+        from dish d
+            left join category c on c.id = d.category_id
+        where d.id = #{id}
+    </select>
+
+    <!-- 按 ID 查询单条套餐源记录。 -->
+    <select id="getSetmealRecordById" resultType="com.sky.search.model.SearchSourceRecord">
+        select
+            'setmeal' as biz_type,
+            s.id as source_id,
+            s.name,
+            s.description,
+            s.category_id,
+            c.name as category_name,
+            s.price,
+            s.image,
+            s.status,
+            ifnull(c.status, 0) as category_status,
+            s.update_time
+        from setmeal s
+            left join category c on c.id = s.category_id
+        where s.id = #{id}
+    </select>
+
+    <!-- 分类变更影响范围：关联菜品 ID 列表。 -->
+    <select id="listDishIdsByCategoryId" resultType="java.lang.Long">
+        select id
+        from dish
+        where category_id = #{categoryId}
+    </select>
+
+    <!-- 分类变更影响范围：关联套餐 ID 列表。 -->
+    <select id="listSetmealIdsByCategoryId" resultType="java.lang.Long">
+        select id
+        from setmeal
+        where category_id = #{categoryId}
+    </select>
+</mapper>
