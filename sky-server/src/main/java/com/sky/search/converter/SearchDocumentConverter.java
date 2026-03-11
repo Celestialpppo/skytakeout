@@ -4,6 +4,7 @@ import com.sky.constant.StatusConstant;
 import com.sky.search.model.GoodsSearchDocument;
 import com.sky.search.model.SearchSourceRecord;
 import com.sky.vo.SearchItemVO;
+import lombok.NoArgsConstructor;
 import org.springframework.util.StringUtils;
 
 import java.util.Locale;
@@ -16,10 +17,8 @@ import java.util.Locale;
  * 2. 统一“是否允许入索引”的判定逻辑；
  * 3. 统一 SourceRecord / ES Document / VO 之间的映射。
  */
+@NoArgsConstructor
 public final class SearchDocumentConverter {
-
-    private SearchDocumentConverter() {
-    }
 
     /**
      * 生成 ES 文档主键。
