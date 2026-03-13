@@ -1,9 +1,10 @@
 package com.sky.service.impl;
 
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
-import com.sky.cache.CacheKeyBuilder;
-import com.sky.config.CacheProtectionProperties;
+import com.sky.constant.RedisConstant;
 import com.sky.dto.DishDTO;
 import com.sky.dto.DishPageQueryDTO;
 import com.sky.entity.Category;
@@ -13,14 +14,12 @@ import com.sky.exception.BusinessException;
 import com.sky.exception.DeletionNotAllowedException;
 import com.sky.mapper.*;
 import com.sky.result.PageResult;
-import com.sky.service.BloomFilterService;
-import com.sky.service.CacheInvalidationService;
-import com.sky.service.CacheSupportService;
 import com.sky.service.DishService;
 import com.sky.utils.AliOssUtil;
 import com.sky.vo.DishVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -47,16 +46,7 @@ public class DishServiceImpl implements DishService {
     private AliOssUtil aliOssUtil;
 
     @Autowired
-    private BloomFilterService bloomFilterService;
-
-    @Autowired
-    private CacheSupportService cacheSupportService;
-
-    @Autowired
-    private CacheInvalidationService cacheInvalidationService;
-
-    @Autowired
-    private CacheProtectionProperties cacheProtectionProperties;
+    private StringRedisTemplate redisTemplate;
 
     @Override
     public PageResult<DishVO> getDishList(DishPageQueryDTO dishPageQueryDTO) {
@@ -93,9 +83,7 @@ public class DishServiceImpl implements DishService {
             // 口味集合不为空时才进行插入
             affectRows = dishFlavorMapper.saveBatch(dishFlavors);
         }
-        if (affectRow > 0) {
-            cacheInvalidationService.evictDishListByCategoryId(dishDTO.getCategoryId());
-        }
+        deleteAllDishCache();
 
         return affectRow > 0 && affectRows >= 0;
     }
@@ -115,13 +103,12 @@ public class DishServiceImpl implements DishService {
         }
         // 查找被删除菜品的图片地址
         List<String> images = dishMapper.getDishImagesByIds(ids);
-        List<Long> categoryIds = dishMapper.getCategoryIdsByDishIds(ids);
         // 删除菜品
         int affectRows = dishMapper.deleteByIds(ids);
 
         // 删除菜品对应的口味数据
         affectRows *= dishFlavorMapper.deleteByDishIds(ids);
-        cacheInvalidationService.evictDishListByCategoryIds(categoryIds);
+        deleteAllDishCache();
 
         // 删除阿里云oss对应文件
         aliOssUtil.deleteFileBatch(images);
@@ -158,7 +145,6 @@ public class DishServiceImpl implements DishService {
             aliOssUtil.deleteFile(dish.getImage());
         }
 
-        Long oldCategoryId = dish.getCategoryId();
         BeanUtils.copyProperties(dishDTO, dish);
         // 更新菜品
         int affectRow = dishMapper.updateDish(dish);
@@ -172,8 +158,7 @@ public class DishServiceImpl implements DishService {
             dishFlavors.forEach(dishFlavor -> dishFlavor.setDishId(dishDTO.getId()));
             dishFlavorMapper.saveBatch(dishFlavors);
         }
-        cacheInvalidationService.evictDishListByCategoryId(oldCategoryId);
-        cacheInvalidationService.evictDishListByCategoryId(dishDTO.getCategoryId());
+        deleteAllDishCache();
         return affectRow > 0;
     }
 
@@ -190,7 +175,8 @@ public class DishServiceImpl implements DishService {
         }
         dish.setStatus(status);
         int affectRow = dishMapper.updateDish(dish);
-        cacheInvalidationService.evictDishListByCategoryId(dish.getCategoryId());
+        // 直接清空菜品缓存
+        deleteAllDishCache();
 
         return affectRow > 0;
     }
@@ -202,18 +188,22 @@ public class DishServiceImpl implements DishService {
 
     @Override
     public List<DishVO> getDishVoListByCategoryId(Long categoryId) {
-        // 第一道防线：先用 Bloom 判断分类ID是否可能存在。
-        // 若明确不存在，直接返回空，避免无效请求继续打到 Redis/DB（防穿透）。
-        if (!bloomFilterService.mightContainCategory(categoryId)) {
-            return Collections.emptyList();
+
+        String jsonStr = (String) redisTemplate.opsForHash().get(RedisConstant.SHOP_CATEGORY_DISHES, categoryId.toString());
+
+        if (jsonStr == null) {
+            // 对象为空要从数据库中获取
+            List<DishVO> dishVOList = dishMapper.getDishVoListByCategoryId(categoryId);
+            String json = JSONObject.toJSONString(dishVOList);
+            redisTemplate.opsForHash().put(RedisConstant.SHOP_CATEGORY_DISHES, categoryId.toString(), json);
+            return dishVOList;
         }
-        // 第二道防线：走 Cache-Aside。
-        // 缓存命中直接返回；未命中回源DB并回填（含空值缓存与TTL抖动策略）。
-        return cacheSupportService.getOrLoadList(
-                CacheKeyBuilder.dishListByCategoryKey(categoryId),
-                DishVO.class,
-                cacheProtectionProperties.getTtl().getDishListSeconds(),
-                () -> dishMapper.getDishVoListByCategoryId(categoryId)
-        );
+        // 如果jsonStr不为空，那就转对象为List<DishVo>
+        return JSONArray.parseArray(jsonStr, DishVO.class);
+    }
+
+    // 删除所有菜品缓存
+    private void deleteAllDishCache() {
+        redisTemplate.delete(RedisConstant.SHOP_CATEGORY_DISHES);
     }
 }

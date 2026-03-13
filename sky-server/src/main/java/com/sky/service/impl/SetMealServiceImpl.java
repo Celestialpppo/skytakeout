@@ -1,9 +1,10 @@
 package com.sky.service.impl;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
-import com.sky.cache.CacheKeyBuilder;
-import com.sky.config.CacheProtectionProperties;
+import com.sky.constant.RedisConstant;
 import com.sky.dto.SetmealDTO;
 import com.sky.dto.SetmealPageQueryDTO;
 import com.sky.entity.Category;
@@ -15,15 +16,13 @@ import com.sky.mapper.DishMapper;
 import com.sky.mapper.SetMealDishMapper;
 import com.sky.mapper.SetMealMapper;
 import com.sky.result.PageResult;
-import com.sky.service.BloomFilterService;
-import com.sky.service.CacheInvalidationService;
-import com.sky.service.CacheSupportService;
 import com.sky.service.SetMealService;
 import com.sky.utils.AliOssUtil;
 import com.sky.vo.DishItemVO;
 import com.sky.vo.SetmealVO;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -52,16 +51,7 @@ public class SetMealServiceImpl implements SetMealService {
     private AliOssUtil aliOssUtil;
 
     @Autowired
-    private BloomFilterService bloomFilterService;
-
-    @Autowired
-    private CacheSupportService cacheSupportService;
-
-    @Autowired
-    private CacheInvalidationService cacheInvalidationService;
-
-    @Autowired
-    private CacheProtectionProperties cacheProtectionProperties;
+    private StringRedisTemplate redisTemplate;
 
     @Override
     @Transactional
@@ -90,11 +80,7 @@ public class SetMealServiceImpl implements SetMealService {
 
         //保存关联菜品数据
         setMealDishMapper.saveSetmealDishBatch(setmealDishes);
-        if (affectRow > 0) {
-            bloomFilterService.addSetmealId(setmeal.getId());
-            cacheInvalidationService.evictSetmealListByCategoryId(setmealDTO.getCategoryId());
-            cacheInvalidationService.evictSetmealDishList(setmeal.getId());
-        }
+        deleteAllSetMealCache();
 
         return affectRow > 0;
     }
@@ -148,9 +134,7 @@ public class SetMealServiceImpl implements SetMealService {
         checkDishExistAndSelling(setmealDishes);
         setmealDishes.forEach(setmealDish -> setmealDish.setSetmealId(setmeal.getId()));
         setMealDishMapper.saveSetmealDishBatch(setmealDishes);
-        cacheInvalidationService.evictSetmealListByCategoryId(setmealVO.getCategoryId());
-        cacheInvalidationService.evictSetmealListByCategoryId(setmealDTO.getCategoryId());
-        cacheInvalidationService.evictSetmealDishList(setmealDTO.getId());
+        deleteAllSetMealCache();
         return affectRow > 0;
     }
 
@@ -164,8 +148,7 @@ public class SetMealServiceImpl implements SetMealService {
         BeanUtils.copyProperties(setmealVO, setmeal);
         setmeal.setStatus(status);
         int affectRow = setMealMapper.updateSetMeal(setmeal);
-        cacheInvalidationService.evictSetmealListByCategoryId(setmealVO.getCategoryId());
-        cacheInvalidationService.evictSetmealDishList(id);
+        deleteAllSetMealCache();
         return affectRow > 0;
     }
 
@@ -174,10 +157,6 @@ public class SetMealServiceImpl implements SetMealService {
         // 查找处于非起售状态的套餐
         List<Long> sellingSetMealIds = setMealMapper.getSellingSetMealByIds(ids);
         List<Long> notSellingSetMealIds = ids.stream().filter(aLong -> !sellingSetMealIds.contains(aLong)).collect(Collectors.toList());
-        List<Long> categoryIds = new ArrayList<>();
-        if (!CollectionUtils.isEmpty(notSellingSetMealIds)) {
-            categoryIds = setMealMapper.getCategoryIdsBySetmealIds(notSellingSetMealIds);
-        }
 
         int affectRows = 0;
         if (!CollectionUtils.isEmpty(notSellingSetMealIds)) {
@@ -189,39 +168,30 @@ public class SetMealServiceImpl implements SetMealService {
             // 删除套餐关联菜品
             setMealDishMapper.delSetMealDishByIds(notSellingSetMealIds);
         }
-        cacheInvalidationService.evictSetmealListByCategoryIds(categoryIds);
-        cacheInvalidationService.evictSetmealDishLists(notSellingSetMealIds);
+        deleteAllSetMealCache();
         return affectRows > 0;
     }
 
     @Override
     public List<Setmeal> getSetMealListByCategoryId(Long categoryId) {
-        // 先做 Bloom 过滤：分类ID若明确不存在，直接返回空集合，拦截穿透流量。
-        if (!bloomFilterService.mightContainCategory(categoryId)) {
-            return new ArrayList<>();
+        String jsonStr = (String) redisTemplate.opsForHash().get(RedisConstant.SHOP_CATEGORY_SETMEALS, categoryId.toString());
+        if (jsonStr == null) {
+            List<Setmeal> setmealList = setMealMapper.getSetMealListByCategoryId(categoryId);
+            String json = JSONObject.toJSONString(setmealList);
+            redisTemplate.opsForHash().put(RedisConstant.SHOP_CATEGORY_SETMEALS, categoryId.toString(), json);
+            return setmealList;
         }
-        // 再走缓存读取：未命中才回源数据库并回填缓存。
-        return cacheSupportService.getOrLoadList(
-                CacheKeyBuilder.setmealListByCategoryKey(categoryId),
-                Setmeal.class,
-                cacheProtectionProperties.getTtl().getSetmealListSeconds(),
-                () -> setMealMapper.getSetMealListByCategoryId(categoryId)
-        );
+        // jsonStr不为空，直接转List<Setmeal>
+        return JSON.parseArray(jsonStr, Setmeal.class);
     }
 
     @Override
     public List<DishItemVO> getDishListBySetMealId(Long id) {
-        // 套餐ID同样先走 Bloom 判断，避免非法ID造成的穿透查询。
-        if (!bloomFilterService.mightContainSetmeal(id)) {
-            return new ArrayList<>();
+        List<DishItemVO> dishItemVOList = setMealDishMapper.getDishListBySetMealId(id);
+        if (CollectionUtils.isEmpty(dishItemVOList)) {
+            throw new BusinessException("当前套餐异常，菜品为空...");
         }
-        // 命中缓存直接返回；未命中回源并回填，空结果也会短TTL缓存。
-        return cacheSupportService.getOrLoadList(
-                CacheKeyBuilder.setmealDishListKey(id),
-                DishItemVO.class,
-                cacheProtectionProperties.getTtl().getSetmealDishSeconds(),
-                () -> setMealDishMapper.getDishListBySetMealId(id)
-        );
+        return dishItemVOList;
     }
 
     private void checkDishExistAndSelling(List<SetmealDish> setmealDishes) {
@@ -236,5 +206,9 @@ public class SetMealServiceImpl implements SetMealService {
             }
             throw new BusinessException("菜品ID: " + missingDishIds + " 已停售或者不存在");
         }
+    }
+
+    private void deleteAllSetMealCache() {
+        redisTemplate.delete(RedisConstant.SHOP_CATEGORY_SETMEALS);
     }
 }

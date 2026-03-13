@@ -51,7 +51,7 @@ public class SearchCanalClientRunner implements ApplicationRunner, DisposableBea
      */
     private final ExecutorService executorService = Executors.newSingleThreadExecutor(r -> {
         Thread thread = new Thread(r, "search-canal-client");
-        thread.setDaemon(true); //守护线程，有线程工作的时候jvm不会退出，而只剩下它了jvm就会退出
+        thread.setDaemon(true);
         return thread;
     });
 
@@ -74,34 +74,30 @@ public class SearchCanalClientRunner implements ApplicationRunner, DisposableBea
         SearchProperties.Canal canal = searchProperties.getCanal();
         connector = CanalConnectors.newSingleConnector(
                 new InetSocketAddress(canal.getHost(), canal.getPort()),
-                canal.getDestination(), //连 Canal 里的哪一个 instance / 通道。
-                canal.getUsername(),//不是 MySQL 账号本身，而是 Canal 客户端连 Canal Server 时用的用户名
-                canal.getPassword() //密码。具体是否启用，取决于 Canal 服务端配置。
+                canal.getDestination(),
+                canal.getUsername(),
+                canal.getPassword()
         );
 
         try {
-            //为什么 Canal 要设计成 getWithoutAck / ack / rollback, 这是它很关键的机制。
-            //Canal 官方把这个叫 流式 API：
-            //你可以先不断拉消息，再按顺序确认；失败时可以回滚到上次 ack 的位置重新消费。这样设计的好处是：
             connector.connect();
-            connector.subscribe(canal.getFilter());//拉一批消息，但先不确认消费成功。
-            connector.rollback();//这里不是“出错了才回滚”，而是启动时先把未确认位点回退到最近确认位置。
-            // 这样做的意思是：从一个明确的消费位点开始，避免接到一个不确定状态继续跑。
+            connector.subscribe(canal.getFilter());
+            connector.rollback();
             log.info("Canal 客户端已启动，destination={}, filter={}", canal.getDestination(), canal.getFilter());
 
-            while (running && !Thread.currentThread().isInterrupted()) { //只要线程不中断，就一直拉binlog变更
-                Message message = connector.getWithoutAck(canal.getBatchSize());//从 Canal 拉一批消息，但先不确认已经消费成功
-                long batchId = message.getId();//这批消息的唯一编号 batchId
-                int size = message.getEntries().size();//这批具体的数据项 entries
+            while (running && !Thread.currentThread().isInterrupted()) {
+                Message message = connector.getWithoutAck(canal.getBatchSize());
+                long batchId = message.getId();
+                int size = message.getEntries().size();
 
                 if (batchId == -1 || size == 0) {
-                    safeSleep(canal.getIdleSleepMs());//空闲等待一小会儿，Canal 客户端通常是轮询式消费，不是每次都有数据。
+                    safeSleep(canal.getIdleSleepMs());
                     continue;
                 }
 
                 try {
-                    dispatchMessage(message);//把 Canal 拉到的一批原始 binlog 变更，筛选并解析成项目内部统一的搜索同步消息，然后发送到 RabbitMQ。
-                    connector.ack(batchId);//这批batch已经处理成功，确认消费完成
+                    dispatchMessage(message);
+                    connector.ack(batchId);
                 } catch (Exception ex) {
                     // 当前批次解析或发送失败，回滚后等待下次重试。
                     connector.rollback(batchId);
@@ -124,10 +120,10 @@ public class SearchCanalClientRunner implements ApplicationRunner, DisposableBea
      */
     private void dispatchMessage(Message message) throws Exception {
         for (CanalEntry.Entry entry : message.getEntries()) {
-            if (entry.getEntryType() != CanalEntry.EntryType.ROWDATA) { //如果有行数据变更
-                continue; //	entryType 	[事务头BEGIN/事务尾END/数据ROWDATA]
+            if (entry.getEntryType() != CanalEntry.EntryType.ROWDATA) {
+                continue;
             }
-            //entry.getStoreValue() 里还是 Canal 的原始二进制内容。
+
             CanalEntry.RowChange rowChange = CanalEntry.RowChange.parseFrom(entry.getStoreValue());
             CanalEntry.EventType eventType = rowChange.getEventType();
 
@@ -138,14 +134,14 @@ public class SearchCanalClientRunner implements ApplicationRunner, DisposableBea
                 continue;
             }
 
-            String tableName = entry.getHeader().getTableName();//这条变更来自哪张表
+            String tableName = entry.getHeader().getTableName();
             LocalDateTime eventTime = LocalDateTime.ofInstant(
                     Instant.ofEpochMilli(entry.getHeader().getExecuteTime()),
                     ZoneId.systemDefault()
-            );//这次数据库变更发生的时间
+            );
 
             for (CanalEntry.RowData rowData : rowChange.getRowDatasList()) {
-                Long id = extractPrimaryKey(rowData, eventType); //那张表的主键
+                Long id = extractPrimaryKey(rowData, eventType);
                 if (id == null) {
                     log.warn("Canal 变更缺少主键，tableName={}, eventType={}", tableName, eventType);
                     continue;

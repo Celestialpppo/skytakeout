@@ -12,7 +12,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.document.Document;
 import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
-import org.springframework.data.elasticsearch.core.IndexOperations;
+import org.springframework.data.elasticsearch.core.mapping.IndexOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 @ConditionalOnProperty(prefix = "sky.search", name = "enabled", havingValue = "true", matchIfMissing = true)
-public class    SearchSyncServiceImpl implements SearchSyncService {
+public class SearchSyncServiceImpl implements SearchSyncService {
 
     @Autowired
     private ElasticsearchOperations elasticsearchOperations;
@@ -46,8 +46,8 @@ public class    SearchSyncServiceImpl implements SearchSyncService {
 
     @Override
     public void rebuildAll() {
-        IndexCoordinates indexCoordinates = getIndexCoordinates(); //先根据配置拿到索引名
-        IndexOperations indexOperations = elasticsearchOperations.indexOps(indexCoordinates); //再拿到“针对这个索引的操作器”
+        IndexCoordinates indexCoordinates = getIndexCoordinates();
+        IndexOperations indexOperations = elasticsearchOperations.indexOps(indexCoordinates);
 
         // 1) 重建索引结构：删除旧索引 -> 创建新索引 -> 写入 mapping。
         if (indexOperations.exists()) {
@@ -94,12 +94,6 @@ public class    SearchSyncServiceImpl implements SearchSyncService {
                 indexCoordinates.getIndexName(), sourceRecords.size(), documents.size());
     }
 
-    /**
-     *
-     * @param tableName 来源表
-     * @param operation 操作类型（INSERT/UPDATE/DELETE）
-     * @param id 主键
-     */
     @Override
     public void syncIncrementalChange(String tableName, String operation, Long id) {
         if (id == null) {

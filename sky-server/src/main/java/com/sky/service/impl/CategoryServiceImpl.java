@@ -2,8 +2,6 @@ package com.sky.service.impl;
 
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
-import com.sky.cache.CacheKeyBuilder;
-import com.sky.config.CacheProtectionProperties;
 import com.sky.constant.StatusConstant;
 import com.sky.dto.CategoryDTO;
 import com.sky.dto.CategoryPageQueryDTO;
@@ -14,14 +12,10 @@ import com.sky.mapper.CategoryMapper;
 import com.sky.mapper.DishMapper;
 import com.sky.mapper.SetMealMapper;
 import com.sky.result.PageResult;
-import com.sky.service.BloomFilterService;
-import com.sky.service.CacheInvalidationService;
-import com.sky.service.CacheSupportService;
 import com.sky.service.CategoryService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
 import java.util.List;
 
 @Service
@@ -35,18 +29,6 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Autowired
     private SetMealMapper setMealMapper;
-
-    @Autowired
-    private CacheSupportService cacheSupportService;
-
-    @Autowired
-    private CacheInvalidationService cacheInvalidationService;
-
-    @Autowired
-    private BloomFilterService bloomFilterService;
-
-    @Autowired
-    private CacheProtectionProperties cacheProtectionProperties;
 
     @Override
     public Category getCategoryById(Long id) {
@@ -69,9 +51,6 @@ public class CategoryServiceImpl implements CategoryService {
 //        category.setUpdateUser(BaseContext.getCurrentId());
 
         int affectRow = categoryMapper.updateCategory(category);
-        if (affectRow > 0) {
-            evictCategoryRelatedCaches(id);
-        }
 
         return affectRow > 0;
     }
@@ -83,12 +62,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     public List<Category> listAllCategory() {
-        return cacheSupportService.getOrLoadList(
-                CacheKeyBuilder.categoryListKey(),
-                Category.class,
-                cacheProtectionProperties.getTtl().getCategoryListSeconds(),
-                categoryMapper::listAllCategory
-        );
+        return categoryMapper.listAllCategory();
     }
 
     @Override
@@ -114,10 +88,6 @@ public class CategoryServiceImpl implements CategoryService {
 //        category.setUpdateUser(BaseContext.getCurrentId());
 
         int affectRow = categoryMapper.addCategory(category);
-        if (affectRow > 0) {
-            bloomFilterService.addCategoryId(category.getId());
-            cacheInvalidationService.evictCategoryList();
-        }
         return affectRow > 0;
     }
 
@@ -139,9 +109,6 @@ public class CategoryServiceImpl implements CategoryService {
 //        category.setUpdateTime(LocalDateTime.now());
 
         int affectRow = categoryMapper.updateCategory(category);
-        if (affectRow > 0) {
-            evictCategoryRelatedCaches(categoryDTO.getId());
-        }
         return affectRow > 0;
     }
 
@@ -159,15 +126,6 @@ public class CategoryServiceImpl implements CategoryService {
         }
 
         int affectRow = categoryMapper.delCategoryById(id);
-        if (affectRow > 0) {
-            evictCategoryRelatedCaches(id);
-        }
         return affectRow > 0;
-    }
-
-    private void evictCategoryRelatedCaches(Long categoryId) {
-        cacheInvalidationService.evictCategoryList();
-        cacheInvalidationService.evictDishListByCategoryId(categoryId);
-        cacheInvalidationService.evictSetmealListByCategoryId(categoryId);
     }
 }
