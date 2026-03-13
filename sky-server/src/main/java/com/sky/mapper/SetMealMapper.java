@@ -47,4 +47,10 @@ public interface SetMealMapper {
     List<Setmeal> getSetMealListByCategoryId(Long categoryId);
 
     SetmealOverViewVO getAllStatusSetMealCount();
+
+    /**
+     * 查询全部套餐ID，用于布隆过滤器初始化。
+     */
+    @Select("select id from setmeal")
+    List<Long> listAllIds();
 }

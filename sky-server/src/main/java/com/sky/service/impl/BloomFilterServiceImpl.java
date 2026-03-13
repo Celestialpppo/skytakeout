@@ -52,7 +52,7 @@ public class BloomFilterServiceImpl implements BloomFilterService {
             try {
                 // 按配置初始化“分类ID”布隆过滤器。
                 RBloomFilter<Long> categoryBloomFilter = redissonClient.getBloomFilter(RedisConstant.CATEGORY_ID_BLOOM_KEY);
-                CacheProtectionProperties.Filter categoryConfig = cacheProtectionProperties.getBloom().getCategory();
+                CacheProtectionProperties.Filter categoryConfig = cacheProtectionProperties.getB loom().getCategory();
                 categoryBloomFilter.tryInit(categoryConfig.getExpectedInsertions(), categoryConfig.getFalseProbability());
 
                 // 按配置初始化“套餐ID”布隆过滤器。

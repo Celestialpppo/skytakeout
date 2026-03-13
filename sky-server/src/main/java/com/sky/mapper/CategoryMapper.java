@@ -39,4 +39,10 @@ public interface CategoryMapper {
 
     @Select("select * from category where status = 1 order by sort")
     List<Category> listAllCategory();
+
+    /**
+     * 查询全部分类ID，用于布隆过滤器初始化。
+     */
+    @Select("select id from category")
+    List<Long> listAllIds();
 }
