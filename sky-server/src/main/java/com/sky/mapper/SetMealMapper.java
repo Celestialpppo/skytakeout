@@ -47,4 +47,9 @@ public interface SetMealMapper {
     List<Setmeal> getSetMealListByCategoryId(Long categoryId);
 
     SetmealOverViewVO getAllStatusSetMealCount();
+
+    @Select("select id from setmeal")
+    List<Long> listAllIds();
+
+    List<Long> getCategoryIdsBySetmealIds(List<Long> ids);
 }

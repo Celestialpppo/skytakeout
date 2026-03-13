@@ -1025,7 +1025,7 @@ sys|schema||mysql.sys|localhost|TRIGGER|G</Grants>
     <schema id="291" parent="1" name="sky_take_out">
       <AutoIntrospectionLevel>3</AutoIntrospectionLevel>
       <LastIntrospectionLevel>3</LastIntrospectionLevel>
-      <LastIntrospectionLocalTimestamp>2026-03-08.11:08:47</LastIntrospectionLocalTimestamp>
+      <LastIntrospectionLocalTimestamp>2026-03-13.07:34:22</LastIntrospectionLocalTimestamp>
       <CollationName>utf8mb4_0900_ai_ci</CollationName>
     </schema>
     <schema id="292" parent="1" name="sys">
@@ -1084,10 +1084,10 @@ sys|schema||mysql.sys|localhost|TRIGGER|G</Grants>
       <CollationName>utf8mb3_bin</CollationName>
     </table>
     <table id="304" parent="291" name="order_request_log">
-      <Comment>订单请求日志表</Comment>
+      <Comment>下单幂等日志</Comment>
       <DetailsLevel>3</DetailsLevel>
       <Engine>InnoDB</Engine>
-      <CollationName>utf8mb4_0900_ai_ci</CollationName>
+      <CollationName>utf8mb3_bin</CollationName>
     </table>
     <table id="305" parent="291" name="orders">
       <Comment>订单表</Comment>
@@ -1096,16 +1096,16 @@ sys|schema||mysql.sys|localhost|TRIGGER|G</Grants>
       <CollationName>utf8mb3_bin</CollationName>
     </table>
     <table id="306" parent="291" name="payment_callback_log">
-      <Comment>支付回调日志表</Comment>
+      <Comment>支付回调幂等日志</Comment>
       <DetailsLevel>3</DetailsLevel>
       <Engine>InnoDB</Engine>
-      <CollationName>utf8mb4_0900_ai_ci</CollationName>
+      <CollationName>utf8mb3_bin</CollationName>
     </table>
     <table id="307" parent="291" name="payment_txn">
       <Comment>支付流水表</Comment>
       <DetailsLevel>3</DetailsLevel>
       <Engine>InnoDB</Engine>
-      <CollationName>utf8mb4_0900_ai_ci</CollationName>
+      <CollationName>utf8mb3_bin</CollationName>
     </table>
     <table id="308" parent="291" name="setmeal">
       <Comment>套餐</Comment>
@@ -1553,620 +1553,653 @@ sys|schema||mysql.sys|localhost|TRIGGER|G</Grants>
       <Primary>1</Primary>
       <UnderlyingIndexName>PRIMARY</UnderlyingIndexName>
     </key>
-    <check id="389" parent="304" name="order_request_log_chk_1">
-      <NameSurrogate>1</NameSurrogate>
-      <Predicate>`status` in (_utf8mb4\&apos;INIT\&apos;,_utf8mb4\&apos;SUCCESS\&apos;,_utf8mb4\&apos;FAIL\&apos;)</Predicate>
-    </check>
-    <column id="390" parent="304" name="id">
+    <column id="389" parent="304" name="id">
       <AutoIncrement>1</AutoIncrement>
       <Comment>主键</Comment>
       <NotNull>1</NotNull>
       <Position>1</Position>
       <StoredType>bigint|0s</StoredType>
     </column>
-    <column id="391" parent="304" name="request_no">
-      <Comment>下单请求唯一号</Comment>
-      <NotNull>1</NotNull>
-      <Position>2</Position>
-      <StoredType>varchar(64)|0s</StoredType>
-    </column>
-    <column id="392" parent="304" name="user_id">
+    <column id="390" parent="304" name="user_id">
       <Comment>用户ID</Comment>
       <NotNull>1</NotNull>
-      <Position>3</Position>
+      <Position>2</Position>
       <StoredType>bigint|0s</StoredType>
     </column>
-    <column id="393" parent="304" name="cart_digest">
-      <Comment>购物车摘要</Comment>
+    <column id="391" parent="304" name="submit_token">
+      <Comment>提交令牌</Comment>
       <NotNull>1</NotNull>
-      <Position>4</Position>
-      <StoredType>varchar(128)|0s</StoredType>
+      <Position>3</Position>
+      <StoredType>varchar(64)|0s</StoredType>
     </column>
-    <column id="394" parent="304" name="order_id">
+    <column id="392" parent="304" name="cart_digest">
+      <Comment>购物车摘要</Comment>
+      <Position>4</Position>
+      <StoredType>varchar(64)|0s</StoredType>
+    </column>
+    <column id="393" parent="304" name="order_id">
       <Comment>订单ID</Comment>
       <Position>5</Position>
       <StoredType>bigint|0s</StoredType>
     </column>
-    <column id="395" parent="304" name="status">
-      <Comment>状态：INIT/SUCCESS/FAIL</Comment>
-      <NotNull>1</NotNull>
+    <column id="394" parent="304" name="order_number">
+      <Comment>订单号</Comment>
       <Position>6</Position>
-      <StoredType>varchar(16)|0s</StoredType>
+      <StoredType>varchar(50)|0s</StoredType>
     </column>
-    <column id="396" parent="304" name="create_time">
-      <Comment>创建时间</Comment>
+    <column id="395" parent="304" name="status">
+      <Comment>状态 0处理中 1成功 2失败</Comment>
+      <DefaultExpression>0</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>7</Position>
-      <StoredType>datetime|0s</StoredType>
+      <StoredType>tinyint|0s</StoredType>
     </column>
-    <column id="397" parent="304" name="update_time">
-      <Comment>更新时间</Comment>
-      <NotNull>1</NotNull>
+    <column id="396" parent="304" name="fail_reason">
+      <Comment>失败原因</Comment>
       <Position>8</Position>
+      <StoredType>varchar(255)|0s</StoredType>
+    </column>
+    <column id="397" parent="304" name="create_time">
+      <Comment>创建时间</Comment>
+      <Position>9</Position>
       <StoredType>datetime|0s</StoredType>
     </column>
-    <index id="398" parent="304" name="PRIMARY">
+    <column id="398" parent="304" name="update_time">
+      <Comment>更新时间</Comment>
+      <Position>10</Position>
+      <StoredType>datetime|0s</StoredType>
+    </column>
+    <index id="399" parent="304" name="PRIMARY">
       <ColNames>id</ColNames>
       <Type>btree</Type>
       <Unique>1</Unique>
     </index>
-    <index id="399" parent="304" name="uk_request_no">
-      <ColNames>request_no</ColNames>
+    <index id="400" parent="304" name="uk_order_request_user_token">
+      <ColNames>user_id
+submit_token</ColNames>
       <Type>btree</Type>
       <Unique>1</Unique>
     </index>
-    <key id="400" parent="304" name="PRIMARY">
+    <key id="401" parent="304" name="PRIMARY">
       <NameSurrogate>1</NameSurrogate>
       <Primary>1</Primary>
       <UnderlyingIndexName>PRIMARY</UnderlyingIndexName>
     </key>
-    <key id="401" parent="304" name="uk_request_no">
-      <UnderlyingIndexName>uk_request_no</UnderlyingIndexName>
+    <key id="402" parent="304" name="uk_order_request_user_token">
+      <UnderlyingIndexName>uk_order_request_user_token</UnderlyingIndexName>
     </key>
-    <column id="402" parent="305" name="id">
+    <column id="403" parent="305" name="id">
       <AutoIncrement>4</AutoIncrement>
       <Comment>主键</Comment>
       <NotNull>1</NotNull>
       <Position>1</Position>
       <StoredType>bigint|0s</StoredType>
     </column>
-    <column id="403" parent="305" name="number">
+    <column id="404" parent="305" name="number">
       <Comment>订单号</Comment>
       <Position>2</Position>
       <StoredType>varchar(50)|0s</StoredType>
     </column>
-    <column id="404" parent="305" name="status">
+    <column id="405" parent="305" name="status">
       <Comment>订单状态 1待付款 2待接单 3已接单 4派送中 5已完成 6已取消 7退款</Comment>
       <DefaultExpression>1</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>3</Position>
       <StoredType>int|0s</StoredType>
     </column>
-    <column id="405" parent="305" name="user_id">
+    <column id="406" parent="305" name="user_id">
       <Comment>下单用户</Comment>
       <NotNull>1</NotNull>
       <Position>4</Position>
       <StoredType>bigint|0s</StoredType>
     </column>
-    <column id="406" parent="305" name="address_book_id">
+    <column id="407" parent="305" name="address_book_id">
       <Comment>地址id</Comment>
       <NotNull>1</NotNull>
       <Position>5</Position>
       <StoredType>bigint|0s</StoredType>
     </column>
-    <column id="407" parent="305" name="order_time">
+    <column id="408" parent="305" name="order_time">
       <Comment>下单时间</Comment>
       <NotNull>1</NotNull>
       <Position>6</Position>
       <StoredType>datetime|0s</StoredType>
     </column>
-    <column id="408" parent="305" name="checkout_time">
+    <column id="409" parent="305" name="checkout_time">
       <Comment>结账时间</Comment>
       <Position>7</Position>
       <StoredType>datetime|0s</StoredType>
     </column>
-    <column id="409" parent="305" name="pay_method">
+    <column id="410" parent="305" name="pay_method">
       <Comment>支付方式 1微信,2支付宝</Comment>
       <DefaultExpression>1</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>8</Position>
       <StoredType>int|0s</StoredType>
     </column>
-    <column id="410" parent="305" name="pay_status">
+    <column id="411" parent="305" name="pay_status">
       <Comment>支付状态 0未支付 1已支付 2退款</Comment>
       <DefaultExpression>0</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>9</Position>
       <StoredType>tinyint|0s</StoredType>
     </column>
-    <column id="411" parent="305" name="amount">
+    <column id="412" parent="305" name="amount">
       <Comment>实收金额</Comment>
       <NotNull>1</NotNull>
       <Position>10</Position>
       <StoredType>decimal(10,2 digit)|0s</StoredType>
     </column>
-    <column id="412" parent="305" name="remark">
+    <column id="413" parent="305" name="remark">
       <Comment>备注</Comment>
       <Position>11</Position>
       <StoredType>varchar(100)|0s</StoredType>
     </column>
-    <column id="413" parent="305" name="phone">
+    <column id="414" parent="305" name="phone">
       <Comment>手机号</Comment>
       <Position>12</Position>
       <StoredType>varchar(11)|0s</StoredType>
     </column>
-    <column id="414" parent="305" name="address">
+    <column id="415" parent="305" name="address">
       <Comment>地址</Comment>
       <Position>13</Position>
       <StoredType>varchar(255)|0s</StoredType>
     </column>
-    <column id="415" parent="305" name="user_name">
+    <column id="416" parent="305" name="user_name">
       <Comment>用户名称</Comment>
       <Position>14</Position>
       <StoredType>varchar(32)|0s</StoredType>
     </column>
-    <column id="416" parent="305" name="consignee">
+    <column id="417" parent="305" name="consignee">
       <Comment>收货人</Comment>
       <Position>15</Position>
       <StoredType>varchar(32)|0s</StoredType>
     </column>
-    <column id="417" parent="305" name="cancel_reason">
+    <column id="418" parent="305" name="cancel_reason">
       <Comment>订单取消原因</Comment>
       <Position>16</Position>
       <StoredType>varchar(255)|0s</StoredType>
     </column>
-    <column id="418" parent="305" name="rejection_reason">
+    <column id="419" parent="305" name="rejection_reason">
       <Comment>订单拒绝原因</Comment>
       <Position>17</Position>
       <StoredType>varchar(255)|0s</StoredType>
     </column>
-    <column id="419" parent="305" name="cancel_time">
+    <column id="420" parent="305" name="cancel_time">
       <Comment>订单取消时间</Comment>
       <Position>18</Position>
       <StoredType>datetime|0s</StoredType>
     </column>
-    <column id="420" parent="305" name="estimated_delivery_time">
+    <column id="421" parent="305" name="estimated_delivery_time">
       <Comment>预计送达时间</Comment>
       <Position>19</Position>
       <StoredType>datetime|0s</StoredType>
     </column>
-    <column id="421" parent="305" name="delivery_status">
+    <column id="422" parent="305" name="delivery_status">
       <Comment>配送状态  1立即送出  0选择具体时间</Comment>
       <DefaultExpression>1</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>20</Position>
       <StoredType>tinyint(1)|0s</StoredType>
     </column>
-    <column id="422" parent="305" name="delivery_time">
+    <column id="423" parent="305" name="delivery_time">
       <Comment>送达时间</Comment>
       <Position>21</Position>
       <StoredType>datetime|0s</StoredType>
     </column>
-    <column id="423" parent="305" name="pack_amount">
+    <column id="424" parent="305" name="pack_amount">
       <Comment>打包费</Comment>
       <Position>22</Position>
       <StoredType>int|0s</StoredType>
     </column>
-    <column id="424" parent="305" name="tableware_number">
+    <column id="425" parent="305" name="tableware_number">
       <Comment>餐具数量</Comment>
       <Position>23</Position>
       <StoredType>int|0s</StoredType>
     </column>
-    <column id="425" parent="305" name="tableware_status">
+    <column id="426" parent="305" name="tableware_status">
       <Comment>餐具数量状态  1按餐量提供  0选择具体数量</Comment>
       <DefaultExpression>1</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>24</Position>
       <StoredType>tinyint(1)|0s</StoredType>
     </column>
-    <index id="426" parent="305" name="PRIMARY">
+    <index id="427" parent="305" name="PRIMARY">
       <ColNames>id</ColNames>
       <Type>btree</Type>
       <Unique>1</Unique>
     </index>
-    <key id="427" parent="305" name="PRIMARY">
+    <index id="428" parent="305" name="uk_orders_number">
+      <ColNames>number</ColNames>
+      <Type>btree</Type>
+      <Unique>1</Unique>
+    </index>
+    <key id="429" parent="305" name="PRIMARY">
       <NameSurrogate>1</NameSurrogate>
       <Primary>1</Primary>
       <UnderlyingIndexName>PRIMARY</UnderlyingIndexName>
     </key>
-    <column id="428" parent="306" name="id">
+    <key id="430" parent="305" name="uk_orders_number">
+      <UnderlyingIndexName>uk_orders_number</UnderlyingIndexName>
+    </key>
+    <column id="431" parent="306" name="id">
       <AutoIncrement>1</AutoIncrement>
       <Comment>主键</Comment>
       <NotNull>1</NotNull>
       <Position>1</Position>
       <StoredType>bigint|0s</StoredType>
     </column>
-    <column id="429" parent="306" name="order_no">
-      <Comment>订单号</Comment>
+    <column id="432" parent="306" name="callback_id">
+      <Comment>回调幂等键</Comment>
       <NotNull>1</NotNull>
       <Position>2</Position>
       <StoredType>varchar(64)|0s</StoredType>
     </column>
-    <column id="430" parent="306" name="out_trade_no">
-      <Comment>商户支付单号</Comment>
+    <column id="433" parent="306" name="order_number">
+      <Comment>订单号</Comment>
       <NotNull>1</NotNull>
       <Position>3</Position>
-      <StoredType>varchar(64)|0s</StoredType>
+      <StoredType>varchar(50)|0s</StoredType>
     </column>
-    <column id="431" parent="306" name="channel_txn_no">
-      <Comment>第三方交易流水号</Comment>
+    <column id="434" parent="306" name="transaction_id">
+      <Comment>三方交易号</Comment>
       <Position>4</Position>
       <StoredType>varchar(64)|0s</StoredType>
     </column>
-    <column id="432" parent="306" name="callback_id">
-      <Comment>回调唯一号</Comment>
-      <NotNull>1</NotNull>
+    <column id="435" parent="306" name="channel">
+      <Comment>支付渠道</Comment>
       <Position>5</Position>
-      <StoredType>varchar(128)|0s</StoredType>
-    </column>
-    <column id="433" parent="306" name="raw_payload">
-      <Comment>原始回调报文</Comment>
-      <Position>6</Position>
-      <StoredType>text|0s</StoredType>
-    </column>
-    <column id="434" parent="306" name="process_status">
-      <Comment>处理状态：INIT/SUCCESS/IGNORE</Comment>
-      <NotNull>1</NotNull>
-      <Position>7</Position>
       <StoredType>varchar(16)|0s</StoredType>
     </column>
-    <column id="435" parent="306" name="create_time">
-      <Comment>创建时间</Comment>
+    <column id="436" parent="306" name="status">
+      <Comment>状态 0处理中 1成功 2失败</Comment>
+      <DefaultExpression>0</DefaultExpression>
       <NotNull>1</NotNull>
+      <Position>6</Position>
+      <StoredType>tinyint|0s</StoredType>
+    </column>
+    <column id="437" parent="306" name="raw_payload">
+      <Comment>原始回调</Comment>
+      <Position>7</Position>
+      <StoredType>varchar(2000)|0s</StoredType>
+    </column>
+    <column id="438" parent="306" name="fail_reason">
+      <Comment>失败原因</Comment>
       <Position>8</Position>
+      <StoredType>varchar(255)|0s</StoredType>
+    </column>
+    <column id="439" parent="306" name="process_time">
+      <Comment>处理完成时间</Comment>
+      <Position>9</Position>
       <StoredType>datetime|0s</StoredType>
     </column>
-    <index id="436" parent="306" name="PRIMARY">
+    <column id="440" parent="306" name="create_time">
+      <Comment>创建时间</Comment>
+      <Position>10</Position>
+      <StoredType>datetime|0s</StoredType>
+    </column>
+    <column id="441" parent="306" name="update_time">
+      <Comment>更新时间</Comment>
+      <Position>11</Position>
+      <StoredType>datetime|0s</StoredType>
+    </column>
+    <index id="442" parent="306" name="PRIMARY">
       <ColNames>id</ColNames>
       <Type>btree</Type>
       <Unique>1</Unique>
     </index>
-    <index id="437" parent="306" name="uk_callback_id">
+    <index id="443" parent="306" name="uk_payment_callback_id">
       <ColNames>callback_id</ColNames>
       <Type>btree</Type>
       <Unique>1</Unique>
     </index>
-    <key id="438" parent="306" name="PRIMARY">
+    <key id="444" parent="306" name="PRIMARY">
       <NameSurrogate>1</NameSurrogate>
       <Primary>1</Primary>
       <UnderlyingIndexName>PRIMARY</UnderlyingIndexName>
     </key>
-    <key id="439" parent="306" name="uk_callback_id">
-      <UnderlyingIndexName>uk_callback_id</UnderlyingIndexName>
+    <key id="445" parent="306" name="uk_payment_callback_id">
+      <UnderlyingIndexName>uk_payment_callback_id</UnderlyingIndexName>
     </key>
-    <column id="440" parent="307" name="id">
+    <column id="446" parent="307" name="id">
       <AutoIncrement>1</AutoIncrement>
       <Comment>主键</Comment>
       <NotNull>1</NotNull>
       <Position>1</Position>
       <StoredType>bigint|0s</StoredType>
     </column>
-    <column id="441" parent="307" name="order_id">
-      <Comment>订单ID</Comment>
+    <column id="447" parent="307" name="pay_request_id">
+      <Comment>支付请求ID</Comment>
       <NotNull>1</NotNull>
       <Position>2</Position>
-      <StoredType>bigint|0s</StoredType>
+      <StoredType>varchar(64)|0s</StoredType>
     </column>
-    <column id="442" parent="307" name="order_no">
+    <column id="448" parent="307" name="order_number">
       <Comment>订单号</Comment>
       <NotNull>1</NotNull>
       <Position>3</Position>
-      <StoredType>varchar(64)|0s</StoredType>
+      <StoredType>varchar(50)|0s</StoredType>
     </column>
-    <column id="443" parent="307" name="request_no">
-      <Comment>支付请求号</Comment>
+    <column id="449" parent="307" name="user_id">
+      <Comment>用户ID</Comment>
       <NotNull>1</NotNull>
       <Position>4</Position>
-      <StoredType>varchar(64)|0s</StoredType>
+      <StoredType>bigint|0s</StoredType>
     </column>
-    <column id="444" parent="307" name="out_trade_no">
-      <Comment>商户支付单号</Comment>
-      <NotNull>1</NotNull>
-      <Position>5</Position>
-      <StoredType>varchar(64)|0s</StoredType>
-    </column>
-    <column id="445" parent="307" name="channel_txn_no">
-      <Comment>第三方交易流水号</Comment>
-      <Position>6</Position>
-      <StoredType>varchar(64)|0s</StoredType>
-    </column>
-    <column id="446" parent="307" name="pay_channel">
-      <Comment>支付渠道</Comment>
-      <NotNull>1</NotNull>
-      <Position>7</Position>
-      <StoredType>varchar(16)|0s</StoredType>
-    </column>
-    <column id="447" parent="307" name="pay_status">
-      <Comment>支付状态：INIT/PAYING/SUCCESS/FAIL</Comment>
-      <NotNull>1</NotNull>
-      <Position>8</Position>
-      <StoredType>varchar(16)|0s</StoredType>
-    </column>
-    <column id="448" parent="307" name="amount">
+    <column id="450" parent="307" name="pay_amount">
       <Comment>支付金额</Comment>
       <NotNull>1</NotNull>
-      <Position>9</Position>
+      <Position>5</Position>
       <StoredType>decimal(10,2 digit)|0s</StoredType>
     </column>
-    <column id="449" parent="307" name="version">
-      <Comment>乐观锁版本号</Comment>
+    <column id="451" parent="307" name="pay_method">
+      <Comment>支付方式</Comment>
+      <NotNull>1</NotNull>
+      <Position>6</Position>
+      <StoredType>tinyint|0s</StoredType>
+    </column>
+    <column id="452" parent="307" name="transaction_id">
+      <Comment>三方交易号</Comment>
+      <Position>7</Position>
+      <StoredType>varchar(64)|0s</StoredType>
+    </column>
+    <column id="453" parent="307" name="status">
+      <Comment>状态 0待回调 1成功 2失败</Comment>
       <DefaultExpression>0</DefaultExpression>
       <NotNull>1</NotNull>
-      <Position>10</Position>
-      <StoredType>int|0s</StoredType>
+      <Position>8</Position>
+      <StoredType>tinyint|0s</StoredType>
     </column>
-    <column id="450" parent="307" name="create_time">
-      <Comment>创建时间</Comment>
-      <NotNull>1</NotNull>
+    <column id="454" parent="307" name="channel">
+      <Comment>支付渠道</Comment>
+      <Position>9</Position>
+      <StoredType>varchar(16)|0s</StoredType>
+    </column>
+    <column id="455" parent="307" name="fail_reason">
+      <Comment>失败原因</Comment>
+      <Position>10</Position>
+      <StoredType>varchar(255)|0s</StoredType>
+    </column>
+    <column id="456" parent="307" name="request_time">
+      <Comment>发起时间</Comment>
       <Position>11</Position>
       <StoredType>datetime|0s</StoredType>
     </column>
-    <column id="451" parent="307" name="update_time">
-      <Comment>更新时间</Comment>
-      <NotNull>1</NotNull>
+    <column id="457" parent="307" name="callback_time">
+      <Comment>回调时间</Comment>
       <Position>12</Position>
       <StoredType>datetime|0s</StoredType>
     </column>
-    <index id="452" parent="307" name="PRIMARY">
+    <column id="458" parent="307" name="create_time">
+      <Comment>创建时间</Comment>
+      <Position>13</Position>
+      <StoredType>datetime|0s</StoredType>
+    </column>
+    <column id="459" parent="307" name="update_time">
+      <Comment>更新时间</Comment>
+      <Position>14</Position>
+      <StoredType>datetime|0s</StoredType>
+    </column>
+    <index id="460" parent="307" name="PRIMARY">
       <ColNames>id</ColNames>
       <Type>btree</Type>
       <Unique>1</Unique>
     </index>
-    <index id="453" parent="307" name="uk_out_trade_no">
-      <ColNames>out_trade_no</ColNames>
+    <index id="461" parent="307" name="uk_payment_txn_request_id">
+      <ColNames>pay_request_id</ColNames>
       <Type>btree</Type>
       <Unique>1</Unique>
     </index>
-    <index id="454" parent="307" name="uk_channel_txn_no">
-      <ColNames>channel_txn_no</ColNames>
+    <index id="462" parent="307" name="uk_payment_txn_order_number">
+      <ColNames>order_number</ColNames>
       <Type>btree</Type>
       <Unique>1</Unique>
     </index>
-    <key id="455" parent="307" name="PRIMARY">
+    <key id="463" parent="307" name="PRIMARY">
       <NameSurrogate>1</NameSurrogate>
       <Primary>1</Primary>
       <UnderlyingIndexName>PRIMARY</UnderlyingIndexName>
     </key>
-    <key id="456" parent="307" name="uk_out_trade_no">
-      <UnderlyingIndexName>uk_out_trade_no</UnderlyingIndexName>
+    <key id="464" parent="307" name="uk_payment_txn_request_id">
+      <UnderlyingIndexName>uk_payment_txn_request_id</UnderlyingIndexName>
     </key>
-    <key id="457" parent="307" name="uk_channel_txn_no">
-      <UnderlyingIndexName>uk_channel_txn_no</UnderlyingIndexName>
+    <key id="465" parent="307" name="uk_payment_txn_order_number">
+      <UnderlyingIndexName>uk_payment_txn_order_number</UnderlyingIndexName>
     </key>
-    <column id="458" parent="308" name="id">
+    <column id="466" parent="308" name="id">
       <AutoIncrement>32</AutoIncrement>
       <Comment>主键</Comment>
       <NotNull>1</NotNull>
       <Position>1</Position>
       <StoredType>bigint|0s</StoredType>
     </column>
-    <column id="459" parent="308" name="category_id">
+    <column id="467" parent="308" name="category_id">
       <Comment>菜品分类id</Comment>
       <NotNull>1</NotNull>
       <Position>2</Position>
       <StoredType>bigint|0s</StoredType>
     </column>
-    <column id="460" parent="308" name="name">
+    <column id="468" parent="308" name="name">
       <Comment>套餐名称</Comment>
       <NotNull>1</NotNull>
       <Position>3</Position>
       <StoredType>varchar(32)|0s</StoredType>
     </column>
-    <column id="461" parent="308" name="price">
+    <column id="469" parent="308" name="price">
       <Comment>套餐价格</Comment>
       <NotNull>1</NotNull>
       <Position>4</Position>
       <StoredType>decimal(10,2 digit)|0s</StoredType>
     </column>
-    <column id="462" parent="308" name="status">
+    <column id="470" parent="308" name="status">
       <Comment>售卖状态 0:停售 1:起售</Comment>
       <DefaultExpression>1</DefaultExpression>
       <Position>5</Position>
       <StoredType>int|0s</StoredType>
     </column>
-    <column id="463" parent="308" name="description">
+    <column id="471" parent="308" name="description">
       <Comment>描述信息</Comment>
       <Position>6</Position>
       <StoredType>varchar(255)|0s</StoredType>
     </column>
-    <column id="464" parent="308" name="image">
+    <column id="472" parent="308" name="image">
       <Comment>图片</Comment>
       <Position>7</Position>
       <StoredType>varchar(255)|0s</StoredType>
     </column>
-    <column id="465" parent="308" name="create_time">
+    <column id="473" parent="308" name="create_time">
       <Comment>创建时间</Comment>
       <Position>8</Position>
       <StoredType>datetime|0s</StoredType>
     </column>
-    <column id="466" parent="308" name="update_time">
+    <column id="474" parent="308" name="update_time">
       <Comment>更新时间</Comment>
       <Position>9</Position>
       <StoredType>datetime|0s</StoredType>
     </column>
-    <column id="467" parent="308" name="create_user">
+    <column id="475" parent="308" name="create_user">
       <Comment>创建人</Comment>
       <Position>10</Position>
       <StoredType>bigint|0s</StoredType>
     </column>
-    <column id="468" parent="308" name="update_user">
+    <column id="476" parent="308" name="update_user">
       <Comment>修改人</Comment>
       <Position>11</Position>
       <StoredType>bigint|0s</StoredType>
     </column>
-    <index id="469" parent="308" name="PRIMARY">
+    <index id="477" parent="308" name="PRIMARY">
       <ColNames>id</ColNames>
       <Type>btree</Type>
       <Unique>1</Unique>
     </index>
-    <index id="470" parent="308" name="idx_setmeal_name">
+    <index id="478" parent="308" name="idx_setmeal_name">
       <ColNames>name</ColNames>
       <Type>btree</Type>
       <Unique>1</Unique>
     </index>
-    <key id="471" parent="308" name="PRIMARY">
+    <key id="479" parent="308" name="PRIMARY">
       <NameSurrogate>1</NameSurrogate>
       <Primary>1</Primary>
       <UnderlyingIndexName>PRIMARY</UnderlyingIndexName>
     </key>
-    <key id="472" parent="308" name="idx_setmeal_name">
+    <key id="480" parent="308" name="idx_setmeal_name">
       <UnderlyingIndexName>idx_setmeal_name</UnderlyingIndexName>
     </key>
-    <column id="473" parent="309" name="id">
+    <column id="481" parent="309" name="id">
       <AutoIncrement>47</AutoIncrement>
       <Comment>主键</Comment>
       <NotNull>1</NotNull>
       <Position>1</Position>
       <StoredType>bigint|0s</StoredType>
     </column>
-    <column id="474" parent="309" name="setmeal_id">
+    <column id="482" parent="309" name="setmeal_id">
       <Comment>套餐id</Comment>
       <Position>2</Position>
       <StoredType>bigint|0s</StoredType>
     </column>
-    <column id="475" parent="309" name="dish_id">
+    <column id="483" parent="309" name="dish_id">
       <Comment>菜品id</Comment>
       <Position>3</Position>
       <StoredType>bigint|0s</StoredType>
     </column>
-    <column id="476" parent="309" name="name">
+    <column id="484" parent="309" name="name">
       <Comment>菜品名称 （冗余字段）</Comment>
       <Position>4</Position>
       <StoredType>varchar(32)|0s</StoredType>
     </column>
-    <column id="477" parent="309" name="price">
+    <column id="485" parent="309" name="price">
       <Comment>菜品单价（冗余字段）</Comment>
       <Position>5</Position>
       <StoredType>decimal(10,2 digit)|0s</StoredType>
     </column>
-    <column id="478" parent="309" name="copies">
+    <column id="486" parent="309" name="copies">
       <Comment>菜品份数</Comment>
       <Position>6</Position>
       <StoredType>int|0s</StoredType>
     </column>
-    <index id="479" parent="309" name="PRIMARY">
+    <index id="487" parent="309" name="PRIMARY">
       <ColNames>id</ColNames>
       <Type>btree</Type>
       <Unique>1</Unique>
     </index>
-    <key id="480" parent="309" name="PRIMARY">
+    <key id="488" parent="309" name="PRIMARY">
       <NameSurrogate>1</NameSurrogate>
       <Primary>1</Primary>
       <UnderlyingIndexName>PRIMARY</UnderlyingIndexName>
     </key>
-    <column id="481" parent="310" name="id">
+    <column id="489" parent="310" name="id">
       <AutoIncrement>9</AutoIncrement>
       <Comment>主键</Comment>
       <NotNull>1</NotNull>
       <Position>1</Position>
       <StoredType>bigint|0s</StoredType>
     </column>
-    <column id="482" parent="310" name="name">
+    <column id="490" parent="310" name="name">
       <Comment>商品名称</Comment>
       <Position>2</Position>
       <StoredType>varchar(32)|0s</StoredType>
     </column>
-    <column id="483" parent="310" name="image">
+    <column id="491" parent="310" name="image">
       <Comment>图片</Comment>
       <Position>3</Position>
       <StoredType>varchar(255)|0s</StoredType>
     </column>
-    <column id="484" parent="310" name="user_id">
+    <column id="492" parent="310" name="user_id">
       <Comment>主键</Comment>
       <NotNull>1</NotNull>
       <Position>4</Position>
       <StoredType>bigint|0s</StoredType>
     </column>
-    <column id="485" parent="310" name="dish_id">
+    <column id="493" parent="310" name="dish_id">
       <Comment>菜品id</Comment>
       <Position>5</Position>
       <StoredType>bigint|0s</StoredType>
     </column>
-    <column id="486" parent="310" name="setmeal_id">
+    <column id="494" parent="310" name="setmeal_id">
       <Comment>套餐id</Comment>
       <Position>6</Position>
       <StoredType>bigint|0s</StoredType>
     </column>
-    <column id="487" parent="310" name="dish_flavor">
+    <column id="495" parent="310" name="dish_flavor">
       <Comment>口味</Comment>
       <Position>7</Position>
       <StoredType>varchar(50)|0s</StoredType>
     </column>
-    <column id="488" parent="310" name="number">
+    <column id="496" parent="310" name="number">
       <Comment>数量</Comment>
       <DefaultExpression>1</DefaultExpression>
       <NotNull>1</NotNull>
       <Position>8</Position>
       <StoredType>int|0s</StoredType>
     </column>
-    <column id="489" parent="310" name="amount">
+    <column id="497" parent="310" name="amount">
       <Comment>金额</Comment>
       <NotNull>1</NotNull>
       <Position>9</Position>
       <StoredType>decimal(10,2 digit)|0s</StoredType>
     </column>
-    <column id="490" parent="310" name="create_time">
+    <column id="498" parent="310" name="create_time">
       <Comment>创建时间</Comment>
       <Position>10</Position>
       <StoredType>datetime|0s</StoredType>
     </column>
-    <index id="491" parent="310" name="PRIMARY">
+    <index id="499" parent="310" name="PRIMARY">
       <ColNames>id</ColNames>
       <Type>btree</Type>
       <Unique>1</Unique>
     </index>
-    <key id="492" parent="310" name="PRIMARY">
+    <key id="500" parent="310" name="PRIMARY">
       <NameSurrogate>1</NameSurrogate>
       <Primary>1</Primary>
       <UnderlyingIndexName>PRIMARY</UnderlyingIndexName>
     </key>
-    <column id="493" parent="311" name="id">
+    <column id="501" parent="311" name="id">
       <AutoIncrement>4</AutoIncrement>
       <Comment>主键</Comment>
       <NotNull>1</NotNull>
       <Position>1</Position>
       <StoredType>bigint|0s</StoredType>
     </column>
-    <column id="494" parent="311" name="openid">
+    <column id="502" parent="311" name="openid">
       <Comment>微信用户唯一标识</Comment>
       <Position>2</Position>
       <StoredType>varchar(45)|0s</StoredType>
     </column>
-    <column id="495" parent="311" name="name">
+    <column id="503" parent="311" name="name">
       <Comment>姓名</Comment>
       <Position>3</Position>
       <StoredType>varchar(32)|0s</StoredType>
     </column>
-    <column id="496" parent="311" name="phone">
+    <column id="504" parent="311" name="phone">
       <Comment>手机号</Comment>
       <Position>4</Position>
       <StoredType>varchar(11)|0s</StoredType>
     </column>
-    <column id="497" parent="311" name="sex">
+    <column id="505" parent="311" name="sex">
       <Comment>性别</Comment>
       <Position>5</Position>
       <StoredType>varchar(2)|0s</StoredType>
     </column>
-    <column id="498" parent="311" name="id_number">
+    <column id="506" parent="311" name="id_number">
       <Comment>身份证号</Comment>
       <Position>6</Position>
       <StoredType>varchar(18)|0s</StoredType>
     </column>
-    <column id="499" parent="311" name="avatar">
+    <column id="507" parent="311" name="avatar">
       <Comment>头像</Comment>
       <Position>7</Position>
       <StoredType>varchar(500)|0s</StoredType>
     </column>
-    <column id="500" parent="311" name="create_time">
+    <column id="508" parent="311" name="create_time">
       <Position>8</Position>
       <StoredType>datetime|0s</StoredType>
     </column>
-    <index id="501" parent="311" name="PRIMARY">
+    <index id="509" parent="311" name="PRIMARY">
       <ColNames>id</ColNames>
       <Type>btree</Type>
       <Unique>1</Unique>
     </index>
-    <key id="502" parent="311" name="PRIMARY">
+    <key id="510" parent="311" name="PRIMARY">
       <NameSurrogate>1</NameSurrogate>
       <Primary>1</Primary>
       <UnderlyingIndexName>PRIMARY</UnderlyingIndexName>

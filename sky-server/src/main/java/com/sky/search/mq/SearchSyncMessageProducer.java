@@ -44,6 +44,7 @@ public class SearchSyncMessageProducer {
             return;
         }
 
+        //把message发到交换机，交换机按照routingKey去做路由
         rabbitTemplate.convertAndSend(searchProperties.getSync().getExchange(), routingKey, message);
         log.debug("发送搜索增量消息成功，tableName={}, operation={}, id={}, routingKey={}",
                 message.getTableName(), message.getOperation(), message.getId(), routingKey);

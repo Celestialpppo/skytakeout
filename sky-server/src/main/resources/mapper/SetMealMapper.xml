@@ -113,4 +113,13 @@
             (select count(1) from setmeal where status = 1) as sold,
             (select count(1) from setmeal where status = 0) as discontinued
     </select>
+
+    <select id="getCategoryIdsBySetmealIds" resultType="java.lang.Long">
+        select distinct category_id
+        from setmeal
+        where id in
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </select>
 </mapper>

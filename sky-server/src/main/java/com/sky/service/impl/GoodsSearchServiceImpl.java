@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @ConditionalOnProperty(prefix = "sky.search", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class GoodsSearchServiceImpl implements GoodsSearchService {
-
+    // Java 里访问 Elasticsearch 的工具对象。
     @Autowired
     private ElasticsearchOperations elasticsearchOperations;
 
@@ -72,10 +72,10 @@ public class GoodsSearchServiceImpl implements GoodsSearchService {
         }
 
         String normalizedType = SearchDocumentConverter.normalizeBizType(safeQuery.getType());
-        if (StringUtils.hasText(normalizedType)) {
+        if (StringUtils.hasText(normalizedType)) { //类型过滤
             boolQueryBuilder.filter(QueryBuilders.termQuery("bizType", normalizedType));
         }
-        if (safeQuery.getCategoryId() != null) {
+        if (safeQuery.getCategoryId() != null) { //分类过滤
             boolQueryBuilder.filter(QueryBuilders.termQuery("categoryId", safeQuery.getCategoryId()));
         }
 
@@ -85,24 +85,26 @@ public class GoodsSearchServiceImpl implements GoodsSearchService {
 
         NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
                 .withQuery(boolQueryBuilder)
-                .withPageable(PageRequest.of(pageNum - 1, pageSize));
+                .withPageable(PageRequest.of(pageNum - 1, pageSize)); // 因为 Spring Data 分页是从 0 开始的，而前端页码通常从 1 开始。
 
         // 关键词检索时先按 _score，再按更新时间兜底；
         // 无关键词时直接按更新时间倒序。
         if (StringUtils.hasText(safeQuery.getKeyword())) {
-            queryBuilder.withSort(SortBuilders.scoreSort().order(SortOrder.DESC));
+            queryBuilder.withSort(SortBuilders.scoreSort().order(SortOrder.DESC)); //先按 _score 降序
         }
-        queryBuilder.withSort(SortBuilders.fieldSort("updateTime").order(SortOrder.DESC));
+        queryBuilder.withSort(SortBuilders.fieldSort("updateTime").order(SortOrder.DESC)); //再按 updateTime 降序
 
-        NativeSearchQuery searchQuery = queryBuilder.build();
+        NativeSearchQuery searchQuery = queryBuilder.build();//生成最终查询对象
+        //确定查哪个索引
         IndexCoordinates indexCoordinates = IndexCoordinates.of(searchProperties.getIndex().getGoodsIndex());
+        //真正去 ES 查，这一步会去 Elasticsearch 里执行查询，返回搜索命中结果。
         SearchHits<GoodsSearchDocument> searchHits =
                 elasticsearchOperations.search(searchQuery, GoodsSearchDocument.class, indexCoordinates);
 
         List<SearchItemVO> records = searchHits.getSearchHits().stream()
-                .map(SearchHit::getContent)
-                .map(SearchDocumentConverter::toSearchItemVO)
-                .collect(Collectors.toList());
+                .map(SearchHit::getContent) //从 ES 命中结果里拿出真正的文档内容
+                .map(SearchDocumentConverter::toSearchItemVO)//再把 GoodsSearchDocument 转成接口返回对象 SearchItemVO
+                .collect(Collectors.toList()); //转为list
 
         log.debug("用户搜索完成，keyword={}, type={}, categoryId={}, total={}",
                 safeQuery.getKeyword(), safeQuery.getType(), safeQuery.getCategoryId(), searchHits.getTotalHits());

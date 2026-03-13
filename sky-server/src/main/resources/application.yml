@@ -47,7 +47,7 @@ spring:
       simple:
         acknowledge-mode: auto
         prefetch: 10
-        default-requeue-rejected: false
+        default-requeue-rejected: false #表示监听器抛异常后，默认不重回队列。
     publisher-confirm-type: correlated
     publisher-returns: true
 
@@ -110,13 +110,31 @@ sky:
       enabled: true
       queue-name: order:timeout:close
       fallback-cron: "0 */30 * * * ?"
+  cache:
+    protection:
+      enabled: true
+      bloom:
+        enabled: true
+        category:
+          expected-insertions: 10000
+          false-probability: 0.01
+        setmeal:
+          expected-insertions: 10000
+          false-probability: 0.01
+      ttl:
+        category-list-seconds: 1800
+        dish-list-seconds: 1800
+        setmeal-list-seconds: 1800
+        setmeal-dish-seconds: 1800
+        jitter-seconds: 300
+        null-ttl-seconds: 120
   # 搜索模块开关与配置
   search:
     # 全文检索功能总开关
     enabled: true
     index:
       goods-index: goods_search
-      auto-init-on-startup: false
+      auto-init-on-startup: true
       # 搜索接口每页最大数量，防止单次查询过大
       max-page-size: 50
     sync:
@@ -131,7 +149,7 @@ sky:
       routing-key-category: search.sync.category
     canal:
       # Canal 客户端开关，依赖 sync.enabled=true
-      enabled: false
+      enabled: true
       host: ${sky.canal.host:127.0.0.1}
       port: ${sky.canal.port:11111}
       destination: ${sky.canal.destination:example}

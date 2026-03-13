@@ -136,6 +136,9 @@ public class SearchProperties {
 
         /**
          * 订阅规则（库名.表名）。
+         * 任意内容.dish
+         * 任意内容.setmeal
+         * 任意内容.category
          */
         private String filter = ".*\\.(dish|setmeal|category)";
 

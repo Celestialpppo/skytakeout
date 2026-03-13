@@ -52,4 +52,6 @@ public interface DishMapper {
     List<DishVO> getDishVoListByCategoryId(Long categoryId);
 
     DishOverViewVO getAllStatusDishesCount();
+
+    List<Long> getCategoryIdsByDishIds(List<Long> ids);
 }

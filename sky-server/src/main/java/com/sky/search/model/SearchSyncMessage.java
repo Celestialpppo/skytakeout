@@ -9,7 +9,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 搜索增量同步消息。
+ * 搜索增量同步消息。承载表变更最小信息。
  *
  * 消息体只保留最小必要信息：
  * - tableName: 来源表（dish/setmeal/category）；
@@ -19,6 +19,11 @@ import java.time.LocalDateTime;
  *
  * 消费端收到后不会直接使用消息内容更新 ES，而是回查 MySQL 最新状态后再写 ES，
  * 避免消息乱序/重复导致的数据脏写。
+ * 为什么这么设计：
+ *
+ * 消息越小越稳定
+ * 传输成本低
+ * 防止把业务快照塞进消息导致过时数据写入
  */
 @Data
 @Builder
