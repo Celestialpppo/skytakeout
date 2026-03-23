@@ -1,0 +1,22 @@
+mappings:
+  - template_id: demo_v1
+    sheet_name: Sheet1
+    cell: B2
+    field_code: project_name
+    required: true
+    fill_mode: overwrite
+    postprocess: identity
+  - template_id: demo_v1
+    sheet_name: Sheet1
+    cell: B3
+    field_code: applicant_name
+    required: true
+    fill_mode: overwrite
+    postprocess: identity
+  - template_id: demo_v1
+    sheet_name: Sheet1
+    cell: B4
+    field_code: contact_phone
+    required: false
+    fill_mode: overwrite
+    postprocess: identity
