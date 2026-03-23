@@ -1,0 +1,31 @@
+fields:
+  - field_code: project_name
+    field_name: 项目名称
+    aliases: ["项目名称", "项目", "名称", "Project Name"]
+    description: 参赛项目名称
+    data_type: string
+    required: true
+    default_value: ""
+    normalizer: strip
+    validator: non_empty
+    priority_sources: [docx, md, txt, xlsx]
+  - field_code: applicant_name
+    field_name: 申报人
+    aliases: ["申报人", "负责人", "联系人", "Applicant"]
+    description: 项目申报责任人
+    data_type: string
+    required: true
+    default_value: ""
+    normalizer: strip
+    validator: non_empty
+    priority_sources: [docx, txt, md, xlsx]
+  - field_code: contact_phone
+    field_name: 联系电话
+    aliases: ["联系电话", "手机号", "电话", "Phone"]
+    description: 联系电话字段
+    data_type: string
+    required: false
+    default_value: ""
+    normalizer: phone_cn
+    validator: phone_cn
+    priority_sources: [txt, docx, md, xlsx]
